@@ -16,5 +16,11 @@ if [[ -e "$target" && ! -w "$target" ]]; then
 fi
 rm -rf "$target"
 ditto "$source" "$target"
+# Replacing a bundle in place leaves the Dock and Finder showing the old icon.
+touch "$target"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$target" || true
+rm -rf ~/Library/Caches/com.apple.iconservices.store 2>/dev/null || true
+killall Dock 2>/dev/null || true
+sleep 1
 open "$target"
 echo "Installed $target. Finish the checklist on the app's Setup page."
