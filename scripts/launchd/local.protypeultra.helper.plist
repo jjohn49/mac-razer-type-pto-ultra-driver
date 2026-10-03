@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>local.protypeultra.helper</string>
+  <key>ProgramArguments</key><array><string>/Applications/ProTypeUltra.app/Contents/Library/Helpers/ProTypeUltraHelper.app/Contents/MacOS/protype-helper</string></array>
+  <key>AssociatedBundleIdentifiers</key><array><string>local.protypeultra.app</string></array>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>5</integer>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardErrorPath</key><string>/var/log/protype-ultra.log</string>
+</dict></plist>

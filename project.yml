@@ -1,0 +1,38 @@
+name: ProTypeUltra
+options:
+  deploymentTarget:
+    macOS: '15.0'
+settings:
+  SWIFT_VERSION: '5.0'
+  CODE_SIGN_STYLE: Manual
+  CODE_SIGN_IDENTITY: '-'
+  ENABLE_HARDENED_RUNTIME: YES
+packages:
+  Keyboard:
+    path: .
+targets:
+  ProTypeUltra:
+    type: application
+    platform: macOS
+    sources: [App]
+    dependencies:
+      - package: Keyboard
+        product: KeyboardCore
+      - package: Keyboard
+        product: KeyboardHID
+      - sdk: ServiceManagement.framework
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: local.protypeultra.app
+      PRODUCT_NAME: ProTypeUltra
+      GENERATE_INFOPLIST_FILE: YES
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      INFOPLIST_KEY_CFBundleDisplayName: Pro Type Ultra
+      INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+      INFOPLIST_KEY_NSInputMonitoringUsageDescription: Read the Razer keyboard's settings and record macros only when you ask. Remapping itself runs in the background service.
+      MARKETING_VERSION: '0.2.0'
+      CURRENT_PROJECT_VERSION: '1'
+schemes:
+  ProTypeUltra:
+    build:
+      targets:
+        ProTypeUltra: all
