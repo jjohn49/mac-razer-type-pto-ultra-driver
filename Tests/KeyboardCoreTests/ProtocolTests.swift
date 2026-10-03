@@ -63,4 +63,16 @@ final class FakeTransport:ReportTransport {
         guard !replies.isEmpty else { throw RazerError.transport("timeout") }
         return replies.removeFirst()
     }
+
+    func testProxyForwardsOnlyKnownCommands() throws {
+        for command in [RazerCommand.firmware, .mode, .brightness, .battery, .charging, .idle, .brightness(7), try .idle(seconds: 120), .effect(.breathing)] {
+            XCTAssertTrue(ProxyPolicy.permits(try command.packet(transaction: 0x1F)), "\(command.commandClass)/\(command.id)")
+        }
+        // Device-mode write (can enter firmware-update mode) and arbitrary classes are refused.
+        XCTAssertFalse(ProxyPolicy.permits(try RazerCommand(0x00, 0x04, [3, 0]).packet(transaction: 0x1F)))
+        XCTAssertFalse(ProxyPolicy.permits(try RazerCommand(0x0F, 0x03, [0, 0, 0, 0]).packet(transaction: 0x1F)))
+        var corrupted = try RazerCommand.firmware.packet(transaction: 0x1F); corrupted[88] ^= 1
+        XCTAssertFalse(ProxyPolicy.permits(corrupted))
+        XCTAssertFalse(ProxyPolicy.permits([UInt8](repeating: 0, count: 89)))
+    }
 }

@@ -39,7 +39,7 @@ DispatchQueue.global(qos: .userInitiated).async {
                         result = Result {
                             guard peerUID == InputService.consoleUID() else { throw RazerError.unavailable("Only the logged-in user can control the helper") }
                             guard peerTrusted else { throw RazerError.unavailable("Only the signed Pro Type Ultra app or CLI can control the helper") }
-                            guard let packet = request.packet, packet.count == 90 else { throw RazerError.invalidRequest }
+                            guard let packet = request.packet, ProxyPolicy.permits(packet) else { throw RazerError.unavailable("That keyboard command is not forwarded by the helper") }
                             var reply = HelperReply(status: service.status)
                             reply.packet = try service.lighting.exchange(packet)
                             return reply

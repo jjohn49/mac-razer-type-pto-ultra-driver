@@ -68,6 +68,22 @@ public struct RazerCommand: Equatable, Sendable {
 
 public enum LightingEffect: String, Codable, CaseIterable, Sendable { case off, staticWhite, breathing }
 
+/// Commands the helper will forward on behalf of the app or CLI. Everything else,
+/// in particular device-mode writes that can switch the keyboard into firmware
+/// update mode, is refused regardless of who asks.
+public enum ProxyPolicy {
+    public static let allowed: Set<UInt16> = [
+        0x0081, 0x0084,         // firmware version, device mode (read)
+        0x0780, 0x0783, 0x0784, // battery, idle time, charging (read)
+        0x0703,                 // idle time (write)
+        0x0F84, 0x0F04, 0x0F02  // brightness read/write, effect
+    ]
+    public static func permits(_ packet: [UInt8]) -> Bool {
+        guard packet.count == 90, packet[88] == RazerCommand.checksum(packet), packet[5] <= 80 else { return false }
+        return allowed.contains(UInt16(packet[6]) << 8 | UInt16(packet[7]))
+    }
+}
+
 
 public protocol ReportTransport: AnyObject {
     func exchange(_ request: [UInt8]) throws -> [UInt8]

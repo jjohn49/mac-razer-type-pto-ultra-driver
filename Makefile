@@ -3,7 +3,8 @@
 # A stable signing identity keeps macOS privacy approvals across rebuilds (an ad-hoc
 # signature changes every build). The first "Apple Development" identity in the
 # keychain is used automatically; override with SIGN_IDENTITY="name" or SIGN_IDENTITY=-.
-export SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -o '"Apple Development[^"]*"' | head -1 | tr -d '"' | grep . || echo -)
+# With no identity the build stops and explains; pass SIGN_IDENTITY=- to accept ad-hoc.
+export SIGN_IDENTITY ?= $(shell security find-identity -v -p codesigning 2>/dev/null | grep -o '"Apple Development[^"]*"' | head -1 | tr -d '"')
 
 build: cli bridge app
 

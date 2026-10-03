@@ -7,7 +7,15 @@ app="${1:-build/DerivedData/Build/Products/Release/ProTypeUltra.app}"
 # Same rule as the Makefile: a stable identity keeps privacy approvals and launchd's
 # code requirement valid across rebuilds; ad-hoc only when nothing is available.
 identity="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | grep -o '"Apple Development[^"]*"' | head -1 | tr -d '"')}"
-identity="${identity:--}"
+if [[ -z "$identity" ]]; then
+  cat >&2 <<'MSG'
+No code-signing identity found. Without a team identity the helper cannot verify
+which process controls it, so ad-hoc signing must be chosen explicitly:
+  make build SIGN_IDENTITY=-          (ad-hoc; any process running as you may configure the helper)
+  make build SIGN_IDENTITY="name"     (an Apple Development or self-signed Code Signing certificate)
+MSG
+  exit 1
+fi
 echo "Signing with: $identity"
 version="$(defaults read "$PWD/$app/Contents/Info.plist" CFBundleShortVersionString)"
 package=".deps/virtualhid/dist/Karabiner-DriverKit-VirtualHIDDevice-8.6.0.pkg"
