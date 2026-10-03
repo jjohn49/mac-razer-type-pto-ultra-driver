@@ -83,7 +83,8 @@ Bluetooth. An override is available on the Setup page.
 - **Lighting & Power:** readings sit in a status panel; controls apply as you change
   them and are kept by the background service (applied at startup, on reconnect, and
   with the app closed). Effects: static white, the firmware's breathing, **Reactive
-  typing** (brightens on each keypress and fades back; needs remapping on) and
+  typing** (brightens on each keypress and fades back; works with remapping on or
+  off) and
   **Candle** (gentle flicker). The keyboard has a single white zone and refuses
   per-key frames, so spatial effects such as wave or checkerboard are not possible
   on this hardware. Battery is shown raw, not as a percentage.

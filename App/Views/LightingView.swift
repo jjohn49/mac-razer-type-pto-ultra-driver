@@ -43,9 +43,6 @@ struct LightingView: View {
                     case .reactive:
                         Slider(value: lighting.idleFraction, in: 0...1) { Text("Idle brightness") } minimumValueLabel: { Text("Off") } maximumValueLabel: { Text("Full") }
                         Stepper("Fade back over \(model.settings.lighting.fadeSeconds, specifier: "%.0f") s", value: lighting.fadeSeconds, in: 1...15, step: 1)
-                        if !model.settings.remappingEnabled {
-                            Label("Reactive typing needs remapping on, because that is when the background service sees keystrokes.", systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
-                        }
                     case .candle:
                         Slider(value: lighting.flicker, in: 0.05...1) { Text("Flicker") } minimumValueLabel: { Text("Calm") } maximumValueLabel: { Text("Wild") }
                     default: EmptyView()

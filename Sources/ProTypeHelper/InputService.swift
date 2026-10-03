@@ -28,6 +28,11 @@ final class InputService {
     private(set) var status = "Starting"
     /// Backlight owner and hardware proxy.
     let lighting = LightingService()
+    /// With remapping off, reactive lighting still needs to know when a key goes
+    /// down. These are non-exclusive opens that report activity only; keystrokes
+    /// pass through macOS untouched and nothing about them is kept.
+    private var watchers: [IOHIDDevice] = []
+    private var watchedDeviceID: String?
     private var lastDeviceScan = -10.0
     private var lightingDeviceID: String?
     // Virtual output bridge
@@ -175,10 +180,32 @@ final class InputService {
                 lighting.setDevice(chosen?.id, wireless: chosen?.productID == 0x027B)
             }
         }
+        updateActivityWatch()
         guard configuration.enabled, !emergency else { if capturing { stop("Remapping is off") }; return }
         guard ready else { if capturing { stop("Virtual output unavailable") }; return }
         if !capturing && now - lastDiscovery > (captureDenied ? 5 : 1) { lastDiscovery = now; capture() }
         if capturing && !recording { emit(engine.tick(now: now)) }
+    }
+
+    private func updateActivityWatch() {
+        let wanted = configuration.settings.lighting.managed && configuration.settings.lighting.mode == .reactive && !capturing && !(configuration.enabled && !emergency && ready)
+        let target = wanted ? lightingDeviceID : nil
+        guard target != watchedDeviceID || (wanted && watchers.isEmpty && now - lastDiscovery > 5) else { return }
+        for d in watchers { IOHIDDeviceUnscheduleFromRunLoop(d, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue); IOHIDDeviceClose(d, 0) }
+        watchers = []; watchedDeviceID = target
+        guard let target else { return }
+        lastDiscovery = now
+        for d in HIDDevices.inputInterfaces(for: target) where IOHIDDeviceOpen(d, 0) == kIOReturnSuccess {
+            watchers.append(d)
+            let context = Unmanaged.passUnretained(self).toOpaque()
+            IOHIDDeviceRegisterInputValueCallback(d, { context, _, _, value in
+                guard let context, IOHIDValueGetIntegerValue(value) != 0 else { return }
+                let page = IOHIDElementGetUsagePage(IOHIDValueGetElement(value))
+                guard page == 7 || page == 12 else { return }
+                Unmanaged<InputService>.fromOpaque(context).takeUnretainedValue().lighting.noteActivity()
+            }, context)
+            IOHIDDeviceScheduleWithRunLoop(d, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+        }
     }
 
     private func capture() {
