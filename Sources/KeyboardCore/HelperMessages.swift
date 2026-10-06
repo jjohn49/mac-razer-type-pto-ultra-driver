@@ -55,14 +55,14 @@ public struct UserAction: Codable, Equatable, Sendable {
     public init(kind: ActionKind, value: String) { self.kind = kind; self.value = value }
 }
 
-public struct RecordedInput: Codable, Sendable {
+public struct RecordedInput: Codable, Equatable, Sendable {
     public var key: Key
     public var down: Bool
     public var time: Double
     public init(key: Key, down: Bool, time: Double) { self.key = key; self.down = down; self.time = time }
 }
 
-public struct HelperReply: Codable, Sendable {
+public struct HelperReply: Codable, Equatable, Sendable {
     public var status: String
     /// Set when the request was refused; the client surfaces it as an error.
     public var error: String?

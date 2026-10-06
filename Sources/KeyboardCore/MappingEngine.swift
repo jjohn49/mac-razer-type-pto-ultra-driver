@@ -22,6 +22,9 @@ public final class MappingEngine {
         var due: Double
     }
     private var playbacks: [Playback] = []
+    /// True while a macro has steps left. Only then does `tick` have work, so the
+    /// helper runs its fast timer only meanwhile.
+    public var playing: Bool { !playbacks.isEmpty }
     public init(profile: Profile = Profile()) { self.profile = profile }
 
     public func setProfile(_ value: Profile) -> [Output] {

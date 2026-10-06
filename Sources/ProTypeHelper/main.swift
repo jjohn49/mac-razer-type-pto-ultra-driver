@@ -74,18 +74,21 @@ DispatchQueue.global(qos: .userInitiated).async {
 }
 
 // Event callbacks handle keystrokes immediately. This timer advances macros,
-// expires the app session, and discovers the keyboard; it slows down while idle.
+// expires the app session, and discovers the keyboard. It runs every 5 ms only
+// while a macro plays (a keypress that starts one speeds it up at once), else 100 ms.
 let timer = DispatchSource.makeTimerSource(queue: .main)
 var fastTimer = false
+func setTimerSpeed(fast: Bool) {
+    guard fast != fastTimer else { return }
+    fastTimer = fast
+    timer.schedule(deadline: .now(), repeating: fast ? .milliseconds(5) : .milliseconds(100), leeway: fast ? .milliseconds(1) : .milliseconds(10))
+}
 timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(10))
 timer.setEventHandler {
     service.tick()
-    let fast = service.capturing
-    if fast != fastTimer {
-        fastTimer = fast
-        timer.schedule(deadline: .now(), repeating: fast ? .milliseconds(5) : .milliseconds(100), leeway: fast ? .milliseconds(1) : .milliseconds(10))
-    }
+    setTimerSpeed(fast: service.needsFastTick)
 }
+service.wake = { setTimerSpeed(fast: true) }
 timer.resume()
 
 signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN)

@@ -76,6 +76,22 @@ USB VID/PID: `1532:0277`. Three HID interfaces, including a 90-byte feature repo
     a byte-identical copy re-signed ad-hoc is refused with "Only the signed Pro Type
     Ultra app or CLI can control the helper" while its status query still works.
 
+## 2026-10-05/06 fixes (found while adding Linux support)
+
+- Receiver through the helper: requests chose the wired transaction (0x1F) because
+  the receiver's label also says USB; it refuses that with status 0x04. The product
+  ID now decides. Verified 2026-10-05: `protype probe` through the installed helper
+  returns readings with only the receiver connected.
+- Idle CPU (was about 15% of a core all the time): the helper's 5 ms timer now runs
+  only while a macro plays; the app republishes the helper's reply only when it
+  changes; Setup runs `pkgutil` and `systemextensionsctl` at most once a minute once
+  the driver is active. Measured 2026-10-06: about 0.3% idle, about 3% while typing
+  with reactive lighting.
+- Reactive lighting faded about a second into holding a key; it now stays up while
+  any key is held and fades from the release. Checked by hand 2026-10-06.
+- `make install` restarts the background service if it is running, so an update
+  takes effect without Setup → Restart service.
+
 ## Manual acceptance recipe
 
 1. Close other remappers. Run `make install`, complete every row of the app's Setup

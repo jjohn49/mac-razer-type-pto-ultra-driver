@@ -32,6 +32,7 @@ final class InputService {
     /// down. These are non-exclusive opens that report activity only; keystrokes
     /// pass through macOS untouched and nothing about them is kept.
     private var watchers: [IOHIDDevice] = []
+    private var watchHeld = Set<UInt32>()
     private var watchedDeviceID: String?
     private var lastDeviceScan = -10.0
     private var lightingDeviceID: String?
@@ -44,6 +45,11 @@ final class InputService {
 
     static let sessionLifetime = 2.5
     var capturing: Bool { !devices.isEmpty }
+    /// Macro playback is the only thing that needs the 5 ms tick; everything else
+    /// (session expiry, discovery) is fine at 100 ms.
+    var needsFastTick: Bool { capturing && engine.playing }
+    /// Called when a keypress starts a macro, so the timer speeds up at once.
+    var wake: (() -> Void)?
     private var now: Double { ProcessInfo.processInfo.systemUptime }
     private var sessionAlive: Bool { now - sessionSeen < Self.sessionLifetime }
 
@@ -193,19 +199,29 @@ final class InputService {
         guard target != watchedDeviceID || (wanted && watchers.isEmpty && now - lastDiscovery > 5) else { return }
         for d in watchers { IOHIDDeviceUnscheduleFromRunLoop(d, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue); IOHIDDeviceClose(d, 0) }
         watchers = []; watchedDeviceID = target
+        if !watchHeld.isEmpty { watchHeld = []; lighting.keysChanged(anyHeld: false) }
         guard let target else { return }
         lastDiscovery = now
         for d in HIDDevices.inputInterfaces(for: target) where IOHIDDeviceOpen(d, 0) == kIOReturnSuccess {
             watchers.append(d)
             let context = Unmanaged.passUnretained(self).toOpaque()
             IOHIDDeviceRegisterInputValueCallback(d, { context, _, _, value in
-                guard let context, IOHIDValueGetIntegerValue(value) != 0 else { return }
-                let page = IOHIDElementGetUsagePage(IOHIDValueGetElement(value))
-                guard page == 7 || page == 12 else { return }
-                Unmanaged<InputService>.fromOpaque(context).takeUnretainedValue().lighting.noteActivity()
+                guard let context else { return }
+                Unmanaged<InputService>.fromOpaque(context).takeUnretainedValue().watchedInput(value)
             }, context)
             IOHIDDeviceScheduleWithRunLoop(d, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
         }
+    }
+
+    /// Reactive lighting with remapping off: track held keys (in memory only) so the
+    /// backlight stays up while one is held.
+    private func watchedInput(_ value: IOHIDValue) {
+        let element = IOHIDValueGetElement(value)
+        let page = IOHIDElementGetUsagePage(element), usage = IOHIDElementGetUsage(element)
+        guard (page == 7 && (4...231).contains(usage)) || page == 12 else { return }
+        let id = page << 16 | usage
+        let changed = IOHIDValueGetIntegerValue(value) != 0 ? watchHeld.insert(id).inserted : watchHeld.remove(id) != nil
+        if changed { lighting.keysChanged(anyHeld: !watchHeld.isEmpty) }
     }
 
     private func capture() {
@@ -245,6 +261,7 @@ final class InputService {
             IOHIDDeviceUnscheduleFromRunLoop(d, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
             IOHIDDeviceClose(d, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
         }
+        if keysByInterface.values.contains(where: { !$0.isEmpty }) { lighting.keysChanged(anyHeld: false) }
         devices = []; keysByInterface = [:]; status = reason
     }
 
@@ -261,7 +278,7 @@ final class InputService {
         let after = Set(keysByInterface.values.flatMap { $0 })
         guard before.contains(key) != after.contains(key) else { return }
         let down = after.contains(key)
-        if down { lighting.noteActivity() }
+        lighting.keysChanged(anyHeld: !after.isEmpty)
         if down && key == Key(41) && !after.isDisjoint(with: [Key(224), Key(228)]) && !after.isDisjoint(with: [Key(226), Key(230)]) {
             emergencyStop(); return
         }
@@ -271,6 +288,7 @@ final class InputService {
             return // Recording is explicit; test keys do not type into the active app.
         }
         emit(engine.handle(key, down: down, now: now))
+        if engine.playing { wake?() }
     }
 
     /// Control + Option + Escape on the Razer. Persists "off" so the keyboard

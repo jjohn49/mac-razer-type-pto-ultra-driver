@@ -137,12 +137,17 @@ import KeyboardHID
         }
     }
     private func absorb(_ result: Result<HelperReply, Error>) {
+        // Assign only on change: every assignment re-renders every view watching the
+        // model, and this runs twice a second whether or not anything changed.
         switch result {
         case .success(let reply):
-            helper = reply; helperError = nil
+            if helper != reply { helper = reply }
+            if helperError != nil { helperError = nil }
             if reply.deviceLabel != lastDeviceLabel { lastDeviceLabel = reply.deviceLabel; refreshDevices() }
         case .failure(let error):
-            helper = nil; helperError = error.localizedDescription
+            let text = error.localizedDescription
+            if helper != nil { helper = nil }
+            if helperError != text { helperError = text }
         }
     }
 

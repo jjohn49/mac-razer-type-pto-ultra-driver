@@ -18,6 +18,7 @@ final class LightingService {
     private var lastWritten = -1
     private var lastWriteTime = -10.0
     private var lastActivity = -1000.0
+    private var keysHeld = false
     private var lastTick = 0.0
     // Animation state, all in perceptual 0…1 space.
     private var level = 1.0
@@ -46,7 +47,7 @@ final class LightingService {
     func setDevice(_ id: String?, wireless: Bool) {
         queue.async { [self] in
             guard id != deviceID else { return }
-            deviceID = id; transport = nil; session = nil; applied = false; lastWritten = -1
+            deviceID = id; transport = nil; session = nil; applied = false; lastWritten = -1; keysHeld = false
         }
     }
     func update(_ next: LightingSettings) {
@@ -55,8 +56,10 @@ final class LightingService {
             settings = next; applied = false
         }
     }
-    /// Only the moment of a keypress is recorded, never which key.
-    func noteActivity() { queue.async { [self] in lastActivity = now } }
+    /// Call on every press and release with whether any key is still down. Reactive
+    /// lighting stays full while one is held (auto-repeat produces no new presses)
+    /// and fades from the last release. Only that yes/no is kept, never which key.
+    func keysChanged(anyHeld: Bool) { queue.async { [self] in keysHeld = anyHeld; lastActivity = now } }
     var available: Bool { queue.sync { transport != nil || deviceID != nil } }
 
     /// The app's and CLI's own hardware traffic, serialized with the animation.
@@ -94,10 +97,10 @@ final class LightingService {
         guard animated else { return }
         switch settings.mode {
         case .reactive:
-            // Target: full for a moment after a keypress, then the idle level. The level
+            // Target: full while a key is held and for a moment after, then the idle level. The level
             // chases the target exponentially: a quick rise, then a long settle with no
             // corner at the end.
-            let target = now - lastActivity < 0.12 ? 1.0 : settings.idleFraction
+            let target = keysHeld || now - lastActivity < 0.12 ? 1.0 : settings.idleFraction
             let tau = target > level ? 0.06 : max(0.2, settings.fadeSeconds / 3)
             level += (target - level) * (1 - exp(-dt / tau))
         case .candle:

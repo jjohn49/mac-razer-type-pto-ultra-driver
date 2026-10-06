@@ -57,6 +57,20 @@ final class MappingTests:XCTestCase {
         XCTAssertEqual(e.tick(now:100),[])
         XCTAssertEqual(e.handle(a,down:false,now:1),[])
     }
+    func testPlayingOnlyWhileAMacroHasStepsLeft() {
+        var p=Profile(); var m=Macro(); m.steps=[.init(key:b,down:true),.init(key:b,down:false,delayMS:50)]
+        var binding=Binding(source:a); binding.kind = .macro; binding.macroID=m.id
+        p.macros=[m]; p.bindings=[binding]
+        let e=MappingEngine(profile:p)
+        XCTAssertFalse(e.playing)
+        XCTAssertEqual(e.handle(Key(6),down:true,now:0),[.key(Key(6),true)])
+        XCTAssertFalse(e.playing, "ordinary keys never need the fast timer")
+        XCTAssertEqual(e.handle(a,down:true,now:0),[.key(b,true)])
+        XCTAssertTrue(e.playing, "the release is still due")
+        XCTAssertEqual(e.tick(now:0.01),[])
+        XCTAssertEqual(e.tick(now:0.06),[.key(b,false)])
+        XCTAssertFalse(e.playing)
+    }
     func testTextIsOnlyEmittedOnInitialPress() {
         var p=Profile(); var binding=Binding(source:a); binding.kind = .text; binding.text="Hello"; p.bindings=[binding]
         let e=MappingEngine(profile:p)

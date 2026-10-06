@@ -63,6 +63,10 @@ enum VirtualHID {
     @Published var ready = false
     @Published var message = ""
     private var refreshing = false
+    /// pkgutil and systemextensionsctl are separate programs; once both report the
+    /// driver installed and active they are asked again only every minute, not on
+    /// every 4-second refresh.
+    private var slowProbe: (package: String?, extensionState: String?, at: Date)?
 
     struct Probe {
         var inApplications = false
@@ -77,18 +81,29 @@ enum VirtualHID {
 
     func refresh(model: AppModel) {
         guard !refreshing else { return }; refreshing = true
+        let cached = slowProbe.flatMap { probe in
+            probe.package == VirtualHID.requiredVersion && probe.extensionState?.contains("[activated enabled]") == true
+                && Date().timeIntervalSince(probe.at) < 60 ? probe : nil
+        }
         Task.detached(priority: .userInitiated) {
             var probe = Probe()
             probe.inApplications = Bundle.main.bundleURL.path.hasPrefix("/Applications/")
-            probe.packageVersion = Self.installedPackageVersion()
-            probe.extensionState = Self.extensionState()
+            if let cached {
+                probe.packageVersion = cached.package; probe.extensionState = cached.extensionState
+            } else {
+                probe.packageVersion = Self.installedPackageVersion()
+                probe.extensionState = Self.extensionState()
+            }
             probe.helperDaemon = Daemons.helper.status
             probe.virtualDaemon = Daemons.virtualHID.status
             probe.inputMonitoring = HIDDevices.permissionGranted()
             probe.accessibility = AXIsProcessTrusted()
             probe.legacy = Legacy.present
             let result = probe
-            await MainActor.run { self.build(result, model: model); self.refreshing = false }
+            await MainActor.run {
+                if cached == nil { self.slowProbe = (result.packageVersion, result.extensionState, Date()) }
+                self.build(result, model: model); self.refreshing = false
+            }
         }
     }
 
