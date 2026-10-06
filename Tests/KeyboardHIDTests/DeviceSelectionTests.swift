@@ -16,6 +16,11 @@ final class DeviceSelectionTests: XCTestCase {
         XCTAssertEqual(HIDDevices.preferred([usb, dongle], override: dongle.id)?.id, dongle.id)
         XCTAssertEqual(HIDDevices.preferred([usb], override: "missing")?.id, usb.id)
     }
+    func testReceiverIsRecognizedByProductIDNotTransport() {
+        XCTAssertTrue(HIDDevices.isReceiver(deviceID: dongle.id))
+        XCTAssertFalse(HIDDevices.isReceiver(deviceID: usb.id))
+        XCTAssertFalse(HIDDevices.isReceiver(deviceID: bluetooth.id))
+    }
     func testControlInterfaceIsNotInput() {
         XCTAssertTrue(HIDDevices.isInputInterface(usagePairs: [(1, 6)]))
         XCTAssertTrue(HIDDevices.isInputInterface(usagePairs: [(1, 6), (12, 1), (1, 0x80), (1, 0)]))

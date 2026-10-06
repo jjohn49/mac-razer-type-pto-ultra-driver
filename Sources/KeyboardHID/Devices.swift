@@ -53,6 +53,9 @@ public enum HIDDevices {
         func rank(_ d: DeviceInfo) -> Int { d.productID == 0x0277 ? 0 : d.productID == 0x027B ? 1 : 2 }
         return devices.sorted { (rank($0), $0.id) < (rank($1), $1.id) }.first
     }
+    /// The HyperSpeed receiver answers only the wireless transaction ID (0x9F);
+    /// the wired transaction (0x1F) gets status 0x04.
+    public static func isReceiver(deviceID: String) -> Bool { deviceID.hasPrefix("\(0x027B):") }
     /// Interfaces that produce keystrokes, consumer keys, or system-control keys
     /// are seized. The control interface (mouse usages plus a 90-byte feature
     /// report) is left alone so the app can configure the keyboard meanwhile.
@@ -140,7 +143,9 @@ public enum Hardware {
     public static func session(deviceID: String?) throws -> RazerSession {
         let client = HelperClient()
         if let reply = try? client.exchange(.status), reply.hardwareAvailable, deviceID == nil || reply.deviceID == deviceID {
-            let wireless = reply.deviceLabel?.contains("USB") == false
+            // The receiver also reports a USB transport, so the product ID decides.
+            // Device IDs start with the decimal product ID.
+            let wireless = reply.deviceID.map(HIDDevices.isReceiver) ?? false
             return RazerSession(transport: HelperTransport(client: client, wireless: wireless), wireless: wireless)
         }
         let transport = try HIDTransport(deviceID:deviceID)
